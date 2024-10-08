@@ -1,19 +1,32 @@
 from selenium import  webdriver
+from selenium.webdriver.chrome.service import Service
 import time
 import os
 import re
-from key import HOST
 from key import PASSWORD
 from key import EMAIL
 from key import ROOT_DIR
 from key import edge_driver_path
 
+HOST = 'https://bb.imperial.ac.uk/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_1_1'
+HOST_WITHOUT_REDIRECT = 'https://bb.imperial.ac.uk/auth-saml/logout/'
 
 def isloaded(driver):
     page_loaded = False
     while not page_loaded:
         page_loaded = driver.execute_script("return document.readyState == 'complete';")
         time.sleep(0.5)
+
+def save_cookie(driver, path):
+    cookies = driver.get_cookies()
+    with open(path, 'w') as f:
+        f.write(str(cookies))
+
+def load_cookie(driver, path):
+    with open(path, 'r') as f:
+        cookies = eval(f.read())
+    for cookie in cookies:
+        driver.add_cookie(cookie)
     
 def validateTitle(title):
     title = title.lstrip()
@@ -177,7 +190,7 @@ def recursive(driver, layer, download_path): #递归
             pass
         else:
             print('-' * layer + Course_Contents[i].find_element("xpath", './../*/h3').text + "(" + img_alt + ")")
-
+service = Service(edge_driver_path)
 options = webdriver.ChromeOptions()
 profile = {
     "download.prompt_for_download": False,
@@ -185,23 +198,41 @@ profile = {
     "plugins.always_open_pdf_externally": True
 }
 options.add_experimental_option("prefs", profile)
-driver = webdriver.Chrome(options=options, executable_path=edge_driver_path)
+driver = webdriver.Chrome(options=options, service=service)
 driver.implicitly_wait(2)
 # driver = webdriver.Chrome()
-driver.get(HOST)
-isloaded(driver)
-driver.find_element("xpath",'//*[@id="i0116"]').send_keys(EMAIL)
-driver.find_element("xpath", '//*[@id="idSIButton9"]').click()
-time.sleep(2)
-driver.find_element("xpath",'//*[@id="i0118"]').send_keys(PASSWORD)
-time.sleep(0.5)
-driver.find_element("xpath", '//*[@id="idSIButton9"]').click()
-time.sleep(0.5)
-input("Press Enter to continue...")
-driver.get(HOST)
-isloaded(driver)
-driver.get(HOST)
-isloaded(driver)
+
+# check if there is any cookie in local
+if os.path.exists('cookies.txt'):
+    driver.get(HOST_WITHOUT_REDIRECT)
+    isloaded(driver)
+    load_cookie(driver, 'cookies.txt')
+    driver.get(HOST)
+    isloaded(driver)
+else:
+    driver.get(HOST)
+    isloaded(driver)
+    driver.find_element("xpath",'//*[@id="i0116"]').send_keys(EMAIL)
+    driver.find_element("xpath", '//*[@id="idSIButton9"]').click()
+    time.sleep(2)
+    driver.find_element("xpath",'//*[@id="i0118"]').send_keys(PASSWORD)
+    time.sleep(0.5)
+    driver.find_element("xpath", '//*[@id="idSIButton9"]').click()
+    time.sleep(0.5)
+    input("Press Enter to continue...")
+    driver.get(HOST)
+    isloaded(driver)
+    driver.get(HOST)
+    isloaded(driver)
+    save_cookie(driver, 'cookies.txt')
+# driver.get(HOST)
+# isloaded(driver)
+# for cookie in cookies:
+#     # leave only name and value, and delete domain, path, etc.
+#     # cookie = {k: cookie[k] for k in ('name', 'value')}
+#     # print(cookie)
+#     driver.add_cookie(cookie)
+
 
 def run(dir):
     courses = driver.find_elements("xpath", '//*[@id="_4_1termCourses_noterm"]/ul/*/a')
